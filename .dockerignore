@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+
+.venv/
+venv/
+
+results/
+data/
+dataset_update.csv
+
+*.pkl
+
+.git/
+.gitignore
+
+.DS_Store

@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Data & Results
+results/
+# data/*.csv
+
+# Models
+*.pkl
+
+# OS
+.DS_Store
