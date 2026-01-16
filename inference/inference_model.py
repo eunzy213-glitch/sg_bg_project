@@ -3,27 +3,19 @@
 # BG 추론 전용 모델 클래스
 # ============================================================
 
-import pandas as pd
-import joblib
+import pandas as pd # DataFrame 처리 라이브러리
+import joblib # 학습된 모델 .pkl 형태로 저장/로드하기 위한 라이브러리
 
-from src.feature_builder import build_features
+from src.feature_builder import build_features # 학습/추론에서 동일한 feature 생성규칙을 재사용
 
 
-class BGPredictor:
-    """
-    SG + Meta 정보를 입력받아 BG를 예측하는 클래스
-    """
+class BGPredictor: # SG + Meta 정보를 입력받아 BG를 예측하는 클래스
 
     def __init__(self, model_path: str):
-        """
-        Parameters
-        ----------
-        model_path : str
-            학습된 모델(pkl) 경로
-        """
-        self.model = joblib.load(model_path)
+ 
+        self.model = joblib.load(model_path) # .pkl 모델 파일을 메모리에 로드해서 self.model에 저장
 
-    def predict(self, input_dict: dict) -> float:
+    def predict(self, input_dict: dict) -> float: # BG 예측 수행
         """
         BG 예측 수행
 

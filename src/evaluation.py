@@ -11,30 +11,32 @@
 # - K-Fold 교차검증
 # ============================================================
 
+# 수치 계산을 위한 라이브러리
 import numpy as np
 import pandas as pd
 
+# sklearn의 회귀 성능 지표 함수들
 from sklearn.metrics import (
     r2_score,
     mean_squared_error,
     mean_absolute_error
 )
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold # K-Fold 교차검증용
 
 
 # ------------------------------------------------------------
-# RMSE 계산
+# RMSE 계산 함수
 # ------------------------------------------------------------
 def rmse(y_true, y_pred):
     """
     RMSE = sqrt(mean((y_true - y_pred)^2))
     → 오차 크기를 mg/dL 단위로 직관적으로 표현
     """
-    return np.sqrt(mean_squared_error(y_true, y_pred))
+    return np.sqrt(mean_squared_error(y_true, y_pred)) # np.sprt를 씌워 RMSE로 변환
 
 
 # ------------------------------------------------------------
-# MARD 계산
+# MARD 계산 함수
 # ------------------------------------------------------------
 def mard(y_true, y_pred, eps=1e-6):
     """
@@ -50,7 +52,7 @@ def mard(y_true, y_pred, eps=1e-6):
 
 
 # ------------------------------------------------------------
-# Clarke Error Grid Zone 판별
+# Clarke Error Grid Analysis (CEGA)
 # ------------------------------------------------------------
 def clarke_error_grid(y_true, y_pred):
     """
@@ -100,12 +102,12 @@ def clarke_error_grid(y_true, y_pred):
 
 
 # ------------------------------------------------------------
-# CEGA 요약
+# CEGA 요약 통계
 # ------------------------------------------------------------
 def cega_summary(y_true, y_pred):
-    zones = clarke_error_grid(y_true, y_pred)
+    zones = clarke_error_grid(y_true, y_pred) # 각 샘플의 zone 계산
 
-    return {
+    return { # Zone A~E 비율 계산
         f"CEGA_{z}": np.mean(zones == z) * 100
         for z in ["A", "B", "C", "D", "E"]
     }
@@ -115,9 +117,9 @@ def cega_summary(y_true, y_pred):
 # Bland–Altman 통계
 # ------------------------------------------------------------
 def bland_altman(y_true, y_pred):
-    diff = y_pred - y_true
-    mean_diff = np.mean(diff)
-    std_diff = np.std(diff, ddof=1)
+    diff = y_pred - y_true # 예측값 - 실제값
+    mean_diff = np.mean(diff) # 평균 차이
+    std_diff = np.std(diff, ddof=1) # 표준편차
 
     return {
         "BA_bias": mean_diff,
@@ -129,7 +131,7 @@ def bland_altman(y_true, y_pred):
 # ------------------------------------------------------------
 # 단일 모델 평가
 # ------------------------------------------------------------
-def evaluate_single(y_true, y_pred):
+def evaluate_single(y_true, y_pred): # 하나의 모델에 대해 모든 평가지표를 한번에 계산
     metrics = {
         "r2": r2_score(y_true, y_pred),
         "rmse": rmse(y_true, y_pred),
@@ -137,8 +139,8 @@ def evaluate_single(y_true, y_pred):
         "mard": mard(y_true, y_pred)
     }
 
-    metrics.update(cega_summary(y_true, y_pred))
-    metrics.update(bland_altman(y_true, y_pred))
+    metrics.update(cega_summary(y_true, y_pred)) # cega 요약 통계 추가
+    metrics.update(bland_altman(y_true, y_pred)) # bland-altman 통계 추가
 
     return metrics
 
@@ -167,14 +169,14 @@ def kfold_evaluate_models(df, models, n_splits=5):
     X = df[["SG"]].values
     y = df["BG"].values
 
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42) # k-fold 설정
     rows = []
 
-    for model_name, model in models.items():
+    for model_name, model in models.items(): # 모델별, fold별 평가
         for fold, (tr, te) in enumerate(kf.split(X), start=1):
-            model.fit(X[tr], y[tr])
-            pred = model.predict(X[te])
-
+            model.fit(X[tr], y[tr]) # 학습
+            pred = model.predict(X[te]) # 예측
+            #평가
             result = evaluate_single(y[te], pred)
             result["model"] = model_name
             result["fold"] = fold

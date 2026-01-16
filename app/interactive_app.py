@@ -1,19 +1,20 @@
 # interactive_app.py
 # ============================================================
 # SG → BG Prediction Interactive Dashboard
+# 모델별 시각화를 인터랙티브하게 확인하는 앱
 # ============================================================
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-import os
+import streamlit as st # Streamlit 라이브러리
+import pandas as pd # csv 파일 로드 및 DataFrame 처리
+import numpy as np # 수치 계산
+import plotly.express as px # 시각화 라이브러리
+import plotly.graph_objects as go # 시각화 라이브러리
+import os # 파일 존재 여부 확인/경로 처리
 
 # ------------------------------------------------------------
 # Streamlit 기본 설정
 # ------------------------------------------------------------
-st.set_page_config(
+st.set_page_config( # Streamlit 페이지 기본 설정
     page_title="SG → BG Prediction Dashboard",
     layout="wide"
 )
@@ -23,20 +24,20 @@ st.title("🧪 SG → BG Prediction Analysis Dashboard")
 # ------------------------------------------------------------
 # 1️⃣ 실험 / 모델 선택
 # ------------------------------------------------------------
-experiment = st.sidebar.selectbox(
-    "Experiment",
-    ["SG_ONLY", "SG_PLUS_META"]
+experiment = st.sidebar.selectbox( # 사이드바에 드롭다운 생성
+    "Experiment", # 드롭다운 위에 표시될 라벨
+    ["SG_ONLY", "SG_PLUS_META"] # 선택 가능한 실험 이름
 )
 
-model = st.sidebar.selectbox(
-    "Model",
+model = st.sidebar.selectbox( # 사이드바 두번째 드롭다운
+    "Model", # 라벨
     ["Linear", "Polynomial", "Huber", "RandomForest", "LightGBM"]
 )
 
 # ------------------------------------------------------------
 # 2️⃣ 데이터 로드
 # ------------------------------------------------------------
-data_path = f"results/{experiment}/predictions.csv"
+data_path = f"results/{experiment}/predictions.csv" # 선택한 experiment에 해당하는 예측 결과 CSV 경로 생성
 
 if not os.path.exists(data_path):
     st.error(f"❌ {data_path} 파일이 없습니다.")
@@ -72,10 +73,10 @@ tabs = st.tabs([
 # ============================================================
 # 📈 Actual vs Predicted
 # ============================================================
-with tabs[0]:
-    st.subheader("Actual vs Predicted BG")
+with tabs[0]: # tabs[0] 영역에 그릴 UI 차트들
+    st.subheader("Actual vs Predicted BG") # 탭 내부 소제목
 
-    fig = px.scatter(
+    fig = px.scatter( # plotly express 산점도 생성
         df_model,
         x="y_true",                # ✅ 문자열 컬럼명
         y="y_pred",                # ✅ 문자열 컬럼명
@@ -103,8 +104,8 @@ with tabs[0]:
 # ============================================================
 # 📉 Residual Plot
 # ============================================================
-with tabs[1]:
-    st.subheader("Residual Plot")
+with tabs[1]: # tabs[1] 영역
+    st.subheader("Residual Plot") # 탭 내부 소제목
 
     fig = px.scatter(
         df_model,
@@ -129,16 +130,25 @@ with tabs[1]:
 # ============================================================
 # 📊 Bland–Altman Plot
 # ============================================================
-with tabs[2]:
-    st.subheader("Bland–Altman Plot")
+with tabs[2]: # tabs[2] 영역
+    st.subheader("Bland–Altman Plot") # 탭 내부 소제목
 
-    mean_bg = (y_true + y_pred) / 2
-    diff = y_pred - y_true
+    # --------------------------------------------------
+    # 1️⃣ Bland–Altman 계산
+    # --------------------------------------------------
+    mean_bg = (y_true + y_pred) / 2          # (Actual + Predicted) / 2
+    diff = y_pred - y_true                   # Difference = Predicted - Actual
 
-    mean_diff = diff.mean()
-    sd_diff = diff.std()
+    mean_diff = diff.mean()                  # 평균 편향 (bias)
+    sd_diff = diff.std()                     # 차이의 표준편차
 
-    fig = px.scatter(
+    loa_upper = mean_diff + 1.96 * sd_diff   # 상한 (Upper LoA)
+    loa_lower = mean_diff - 1.96 * sd_diff   # 하한 (Lower LoA)
+
+    # --------------------------------------------------
+    # 2️⃣ Scatter Plot
+    # --------------------------------------------------
+    fig = px.scatter( # Bland-Altman 산점도 생성
         x=mean_bg,
         y=diff,
         hover_data={
@@ -152,32 +162,59 @@ with tabs[2]:
         title=f"Bland–Altman Plot ({model})"
     )
 
-    # 평균 차이선
+    # --------------------------------------------------
+    # 3️⃣ 기준선 추가
+    # --------------------------------------------------
+    # 평균 차이선 (Bias)
     fig.add_hline(
         y=mean_diff,
         line_color="black",
         line_dash="dash"
     )
 
-    # ±1.96 SD
+    # ±1.96 SD (Limits of Agreement)
     fig.add_hline(
-        y=mean_diff + 1.96 * sd_diff,
+        y=loa_upper,
         line_color="red",
         line_dash="dot"
     )
     fig.add_hline(
-        y=mean_diff - 1.96 * sd_diff,
+        y=loa_lower,
         line_color="red",
         line_dash="dot"
     )
 
+    # --------------------------------------------------
+    # 4️⃣ 오른쪽 상단 요약 텍스트
+    # --------------------------------------------------
+    fig.add_annotation(
+        x=0.98,
+        y=0.98,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        align="right",
+        bordercolor="black",
+        borderwidth=1,
+        bgcolor="white",
+        opacity=0.85,
+        text=(
+            f"<b>Mean bias</b>: {mean_diff:.2f}<br>"
+            f"<b>+1.96 SD</b>: {loa_upper:.2f}<br>"
+            f"<b>-1.96 SD</b>: {loa_lower:.2f}"
+        )
+    )
+
+    # --------------------------------------------------
+    # 5️⃣ 출력
+    # --------------------------------------------------
     st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================
 # 🧠 CEGA Plot
 # ============================================================
-with tabs[3]:
-    st.subheader("Clarke Error Grid Analysis (CEGA)")
+with tabs[3]: # tabs[3] 영역
+    st.subheader("Clarke Error Grid Analysis (CEGA)") # 탭 내부 소제목
 
     fig = px.scatter(
         df_model,

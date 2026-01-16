@@ -1,6 +1,11 @@
-import pandas as pd
+# preprocessing.py
+# ============================================================
+# DataFrame 타입 힌트 및 데이터 처리용
+# ============================================================
 
+import pandas as pd # DataFrame 처리 라이브러리
 
+# 각 범주형 컬럼을 정수로 바꿀 때 사용한 매핑표
 ENCODING_MAP = {
     "Meal_Status": {
         "Fasting": 0,
@@ -29,91 +34,121 @@ ENCODING_MAP = {
         "Diabetes": 2
     },
     "Pregnancy": {
-        "Not_Applicable": 0,
-        "None": 1,
-        "Pregnant_Normal": 2
+        "Not_Pregnant": 0,      
+        "Pregnant_Normal": 1,   
+        "Pregnant_GDM": 2       
     }
 }
 
 
 def normalize_categorical_values(df: pd.DataFrame) -> pd.DataFrame:
     """
-    모든 범주형 컬럼을
-    ENCODING_MAP의 key 중 하나로만 강제 정규화
+    범주형 값이 데이터에 다양한 표기로 들어와도,
+    ENCODING_MAP의 key로 강제 통일(정규화)합니다.
     """
 
-    df = df.copy()
+    df = df.copy()  # 원본 보호(함수 밖 df가 변하지 않게)
 
-    # Pregnancy만 특별 처리 (가장 문제 많음)
+    # --------------------------------------------------------
+    # ✅ Pregnancy 값 정규화 (가장 중요/가장 오류 잦음)
+    # --------------------------------------------------------
     if "Pregnancy" in df.columns:
 
-        # 1️⃣ 진짜 NaN / None / 공백 전부 통일
-        s = df["Pregnancy"].fillna("Not_Applicable").astype(str).str.strip().str.lower()
+        # 1) 결측/공백/대소문자/앞뒤공백 처리 통일
+        s = (
+            df["Pregnancy"]
+            .fillna("not_pregnant")      # NaN이면 기본적으로 임신 아님으로 처리
+            .astype(str)                 # 문자열로 통일
+            .str.strip()                 # 앞뒤 공백 제거
+            .str.lower()                 # 소문자 통일
+        )
 
-        # 2️⃣ 의미 기반 정규화
+        # 2) 데이터에 존재 가능한 다양한 표현을 의미 기반으로 통일
         s = s.replace({
-            "nan": "not_applicable",
-            "n/a": "not_applicable",
-            "na": "not_applicable",
-            "unknown": "not_applicable",
-            "": "not_applicable",
+            # ----- "임신 아님" 계열 -----
+            "nan": "not_pregnant",
+            "n/a": "not_pregnant",
+            "na": "not_pregnant",
+            "unknown": "not_pregnant",
+            "": "not_pregnant",
 
-            "none": "none",
+            "none": "not_pregnant",            
+            "not_applicable": "not_pregnant",  
+            "not applicable": "not_pregnant",
+            "no": "not_pregnant",
+            "not pregnant": "not_pregnant",
+            "not_pregnant": "not_pregnant",
 
-            "no": "not_applicable",
-            "not pregnant": "not_applicable",
-            "not_pregnant": "not_applicable",
-
-            "yes": "pregnant_normal",
-            "pregnant": "pregnant_normal",
+            # ----- "정상 임신" 계열 -----
+            "pregnant_normal": "pregnant_normal",
+            "pregnant normal": "pregnant_normal",
+            "pregnant": "pregnant_normal",     # 임신이라고만 쓰인 경우 우선 정상 임신으로 간주
+            
+            # ----- "임신성 당뇨(GDM)" 계열 -----
+            "pregnant_gdm": "pregnant_gdm",
+            "pregnant gdm": "pregnant_gdm",
+            "gdm": "pregnant_gdm",
+            "gestational diabetes": "pregnant_gdm",
+            "gestational_diabetes": "pregnant_gdm",
         })
 
-        # 3️⃣ ⭐ 반드시 ENCODING_MAP key와 정확히 맞춤
+        # 3) 최종적으로 ENCODING_MAP의 key와 정확히 맞추기(대소문자 포함)
         s = s.replace({
-            "not_applicable": "Not_Applicable",
-            "none": "None",
+            "not_pregnant": "Not_Pregnant",
             "pregnant_normal": "Pregnant_Normal",
+            "pregnant_gdm": "Pregnant_GDM",
         })
 
-        # 4️⃣ 그래도 혹시 남은 값 → 전부 Not_Applicable
-        valid_keys = set(ENCODING_MAP["Pregnancy"].keys())
-        s = s.where(s.isin(valid_keys), "Not_Applicable")
+        # 4) 그래도 남는 이상값은 임신 아님으로 강제(안정성 우선)
+        valid_keys = set(ENCODING_MAP["Pregnancy"].keys())  # 허용 키 집합
+        s = s.where(s.isin(valid_keys), "Not_Pregnant")     # 허용되지 않으면 Not_Pregnant로
 
+        # 5) 정규화 결과를 df에 반영
         df["Pregnancy"] = s
 
-    return df
+    return df  # 정규화된 df 반환
 
 
 def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+    """
+    ENCODING_MAP 기준으로 범주형 값을 정수로 변환합니다.
+    학습/추론/시각화 모두 동일한 인코딩 규칙을 사용해야 합니다.
+    """
 
-    for col, mapping in ENCODING_MAP.items():
-        if col in df.columns:
-            df[col] = df[col].map(mapping)
+    df = df.copy()  # 원본 보호
 
-            # ✅ 컬럼별 안전한 기본값 선택
-            # - Not_Applicable 있으면 그 값
-            # - 없으면 첫 번째 클래스 값
+    for col, mapping in ENCODING_MAP.items():  # 각 컬럼별 매핑 적용
+        if col in df.columns:                  # 실제 df에 컬럼이 있을 때만
+            df[col] = df[col].map(mapping)     # 문자열 -> 정수
+
+            # 기본값 정책:
+            # - Pregnancy는 Not_Pregnant가 기본값
+            # - 그 외는 첫 번째 클래스 값
             default_value = (
-                mapping["Not_Applicable"]
-                if "Not_Applicable" in mapping
+                mapping["Not_Pregnant"]
+                if col == "Pregnancy"
                 else list(mapping.values())[0]
             )
 
-            df[col] = df[col].fillna(default_value)
+            df[col] = df[col].fillna(default_value)  # NaN이면 기본값으로 채우기
 
-    return df
-
+    return df  # 인코딩된 df 반환
 
 
 def build_features(df: pd.DataFrame, mode: str):
-    df = df.copy()
-    mode = mode.lower()
+    """
+    mode에 따라 입력 feature 구성을 결정하고,
+    X(입력), y(정답), feature_names(컬럼명 리스트)를 반환합니다.
+    """
 
-    # ✅ 반드시 이 순서
-    df = normalize_categorical_values(df)
-    df = encode_categorical_features(df)
+    df = df.copy()            # 원본 보호
+    mode = mode.lower()       # 비교 안정성 확보
 
+    # ✅ 반드시 정규화 -> 인코딩 순서
+    df = normalize_categorical_values(df)  # 표기 통일
+    df = encode_categorical_features(df)   # 정수 인코딩
+
+    # 모드별 feature 구성
     if mode == "sg_only":
         feature_cols = ["SG"]
     elif mode == "sg_plus_meta":
@@ -124,14 +159,13 @@ def build_features(df: pd.DataFrame, mode: str):
             "Age_Group",
             "Exercise",
             "Family_History",
-            "Pregnancy"
+            "Pregnancy",  
         ]
     else:
         raise ValueError(f"Unknown feature mode: {mode}")
 
-    X = df[feature_cols].values
-    feature_names = feature_cols
-
-    y = df["BG"].values if "BG" in df.columns else None
+    X = df[feature_cols].values             # 모델 입력 행렬
+    feature_names = feature_cols            # feature 이름(순서 중요)
+    y = df["BG"].values if "BG" in df.columns else None  # 정답(추론이면 None)
 
     return X, y, feature_names

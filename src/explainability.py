@@ -3,15 +3,15 @@
 # SHAP / LIME Explainability Utilities
 # ============================================================
 
-import os
-import numpy as np
-import shap
-import matplotlib.pyplot as plt
+import os # 결과 이미지 저장을 위한 폴더/경로 처리
+import numpy as np # 배열처리/슬라이싱 등 수치연산용
+import shap # SHAP 라이브러리
+import matplotlib.pyplot as plt # 시각화 라이브러리
 
-from lime.lime_tabular import LimeTabularExplainer
+from lime.lime_tabular import LimeTabularExplainer # LIME 라이브러리
 
 
-def run_shap_analysis(
+def run_shap_analysis( # shap 분석 함수
     model,
     X_train,
     X_test,
@@ -19,35 +19,17 @@ def run_shap_analysis(
     save_dir,
     max_display=20
 ):
-    """
-    SHAP Global Explanation (Tree-based models)
-
-    Parameters
-    ----------
-    model : trained model
-    X_train : np.ndarray
-        학습에 사용된 feature (explainer 기준)
-    X_test : np.ndarray
-        SHAP 값을 계산할 feature
-    feature_names : list
-        feature 이름
-    save_dir : str
-        결과 저장 경로
-    max_display : int
-        SHAP summary에 표시할 최대 feature 수
-    """
 
     os.makedirs(save_dir, exist_ok=True)
 
     # --------------------------------------------------------
     # TreeExplainer (RF, LightGBM)
     # --------------------------------------------------------
-    explainer = shap.TreeExplainer(model)
+    explainer = shap.TreeExplainer(model) # TreeExplainer는 트리 기반 모델에 대해 SHAP 값을 효율적으로 계산해주는 explainer
 
-    # 계산량 제한
-    X_sample = X_test[:200]
+    X_sample = X_test[:200] # 계산량 제한
 
-    shap_values = explainer.shap_values(X_sample)
+    shap_values = explainer.shap_values(X_sample)  # SHAP 값 계산
 
     # --------------------------------------------------------
     # SHAP Summary Plot
@@ -60,7 +42,7 @@ def run_shap_analysis(
         feature_names=feature_names,
         max_display=max_display,
         show=False,
-        color_bar=False  # 서버/비GUI 환경 안정성
+        color_bar=False  
     )
 
     plt.tight_layout()
@@ -72,45 +54,26 @@ def run_shap_analysis(
     plt.close()
 
 
-def run_lime_analysis(
+def run_lime_analysis( # lime 분석 함수
     model,
     X_train,
     X_test,
     feature_names,
     save_dir,
-    sample_idx=0,
-    num_features=10
+    sample_idx=0, # 몇번째 샘플을 설명할지
+    num_features=10 # 결과에서 상위 몇개 feature를 보여줄지
 ):
-    """
-    LIME Local Explanation (single sample)
-
-    Parameters
-    ----------
-    model : trained model
-    X_train : np.ndarray
-        학습 데이터
-    X_test : np.ndarray
-        설명할 데이터
-    feature_names : list
-        feature 이름
-    save_dir : str
-        결과 저장 경로
-    sample_idx : int
-        설명할 샘플 index
-    num_features : int
-        표시할 feature 개수
-    """
 
     os.makedirs(save_dir, exist_ok=True)
 
-    explainer = LimeTabularExplainer(
+    explainer = LimeTabularExplainer( # lime explainer 객체 생성
         training_data=X_train,
         feature_names=feature_names,
         mode="regression",
         discretize_continuous=False
     )
 
-    exp = explainer.explain_instance(
+    exp = explainer.explain_instance( # 특정 샘플 1건 설명 생성
         X_test[sample_idx],
         model.predict,
         num_features=num_features

@@ -1,38 +1,24 @@
 # pipelines/explain_pipeline.py
 # ============================================================
 # SHAP / LIME Explainability 전용 파이프라인
-#
-# 🔑 핵심 설계
-# - 학습/추론 파이프라인과 분리
-# - Explain 전용 One-Hot Encoding 사용
-# - 서브 카테고리 단위 SHAP / LIME 해석 가능
-#
-# 결과 저장 구조:
-# results/
-# └── SG_PLUS_META/
-#     ├── EXPLAIN_LightGBM/
-#     └── EXPLAIN_RandomForest/
 # ============================================================
 
-import os
-import pandas as pd
-import numpy as np
+import os # 파일/폴더 경로 라이브러리
+import pandas as pd # DataFrame 처리 라이브러리
+import numpy as np # 수치연산 라이브러리
 
-from src.preprocessing import preprocess_and_filter_outliers
-from src.models import get_model_dict
-from src.explainability import run_shap_analysis, run_lime_analysis
+from src.preprocessing import preprocess_and_filter_outliers # 학습 파이프라인과 동일한 전처리/이상치 제거 로직 재사용
+from src.models import get_model_dict # 동일한 모델 구성 재사용
+from src.explainability import run_shap_analysis, run_lime_analysis # SHAP / LIME 분석 함수
 
 
 # ============================================================
-# ⭐ 프로젝트 루트 경로 자동 계산
-# 이 파일 위치: sg_bg_project/pipelines/explain_pipeline.py
+# 프로젝트 루트 경로 자동 계산
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# BASE_DIR == sg_bg_project
-
 
 # ============================================================
-# ⭐ Explain 전용 One-Hot Feature 생성 함수
+# Explain 전용 One-Hot Feature 생성 함수
 # ============================================================
 CATEGORICAL_COLS = [
     "Meal_Status",
@@ -44,7 +30,7 @@ CATEGORICAL_COLS = [
 ]
 
 
-def build_explain_features(df: pd.DataFrame):
+def build_explain_features(df: pd.DataFrame): # Explain 전용 Feature 생성 함수
     """
     SHAP / LIME 전용 feature 생성
 
@@ -76,29 +62,14 @@ def build_explain_features(df: pd.DataFrame):
     return X_explain.values, feature_names
 
 
-def run_explain_pipeline(
+def run_explain_pipeline( # explainability 파이프라인 메인 함수
     data_path: str,
     experiment_name: str,
     target_models: list | None = None
 ):
-    """
-    SHAP / LIME 설명가능성 분석 파이프라인
-
-    Parameters
-    ----------
-    data_path : str
-        원본 데이터 경로 (프로젝트 루트 기준)
-        예: "data/dataset.csv"
-    experiment_name : str
-        "SG_ONLY" or "SG_PLUS_META"
-    target_models : list or None
-        설명할 모델 이름 리스트
-        예) ["LightGBM", "RandomForest"]
-        None이면 모든 모델 수행
-    """
 
     # --------------------------------------------------------
-    # 1️⃣ 데이터 로드 (실행 위치 무관)
+    # 1️⃣ 데이터 로드
     # --------------------------------------------------------
     data_path = os.path.join(BASE_DIR, data_path)
     df = pd.read_csv(data_path)
@@ -114,11 +85,11 @@ def run_explain_pipeline(
     # --------------------------------------------------------
     df_clean, _ = preprocess_and_filter_outliers(df)
 
-    # index 정합성 유지
+    # index 정리
     df_clean = df_clean.reset_index(drop=True)
 
     # --------------------------------------------------------
-    # 4️⃣ Explain 전용 Feature 구성 (⭐ One-Hot)
+    # 4️⃣ Explain 전용 Feature 구성 (One-Hot)
     # --------------------------------------------------------
     # 타깃
     y = df_clean["BG"].values
@@ -194,12 +165,12 @@ def run_explain_pipeline(
 
 
 # ------------------------------------------------------------
-# 단독 실행용
+# 단독 실행용 엔트리 포인트
 # ------------------------------------------------------------
 if __name__ == "__main__":
 
     run_explain_pipeline(
-        data_path="data/dataset.csv",   # ⭐ 프로젝트 루트 기준
+        data_path="data/dataset.csv",   # 프로젝트 루트 기준 경로
         experiment_name="SG_PLUS_META",
         target_models=["LightGBM", "RandomForest"]
     )
