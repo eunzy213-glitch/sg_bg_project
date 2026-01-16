@@ -19,7 +19,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # 프로젝트 코드 복사
-COPY . .
+COPY . /app
 
 # 기본 실행: main.py
 CMD ["python", "main.py"]

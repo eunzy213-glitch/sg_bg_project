@@ -5,7 +5,6 @@ __pycache__/
 venv/
 
 results/
-data/
 dataset_update.csv
 
 *.pkl

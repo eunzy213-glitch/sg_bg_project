@@ -28,9 +28,9 @@ sg_bg_project/
 ## 🧱 Docker 이미지 빌드
 프로젝트 루트 디렉토리에서 아래 명령을 실행합니다.
 ```bash
-docker build -t sg-bg-project .
+docker build -t sg-bg .
 ```
- - `sg-bg-project` : 생성할 Docker 이미지 이름
+ - `sg-bg` : 생성할 Docker 이미지 이름
  - 최초 빌드 시 라이브러리 설치로 인해 시간이 소요될 수 있습니다.
 
 ---
@@ -38,7 +38,10 @@ docker build -t sg-bg-project .
 ## 🏃 기본 실행 (학습 파이프라인)
 Docker 컨테이너를 실행하면 기본적으로 `main.py`가 실행되며 학습 파이프라인이 수행됩니다.
 ```bash
-docker run sg-bg-project
+docker run --rm \
+  -v $(pwd)/results:/app/results \
+  sg-bg \
+  python main.py
 ```
 실행 내용:
   - 데이터 로드
@@ -56,8 +59,10 @@ docker run sg-bg-project
 SHAP / LIME 기반의 모델 해석이 필요한 경우 아래와 같이 실행할 수 있습니다.
 
 ```bash
-docker run sg-bg-projcet \
-    python pipelines/explain_pipeline.py
+docker run --rm \
+  -v $(pwd)/results:/app/results \
+  sg-bg \
+  python -m pipelines.explain_pipeline
 ```
 
 실행 결과:
@@ -71,8 +76,10 @@ docker run sg-bg-projcet \
 학습된 모델을 이용해 **새로운 입력값으로 BG를 예측**할 수 있습니다.
 
 ```bash
-docker run -it sg-bg-project \
-  python inference/cli_predict.py
+docker run --rm -it \
+  -v $(pwd)/results:/app/results \
+  sg-bg \
+  python -m inference.cli_predict
 ```
 
 CLI에서 다음 정보를 순서대로 입력합니다.
@@ -90,8 +97,11 @@ CLI에서 다음 정보를 순서대로 입력합니다.
 웹 UI 기반 예측 및 시각화를 실행하려면 다음 명령을 사용합니다.
 
 ```bash
-docker run -p 8501:8501 sg-bg-project \
-  streamlit run app/interactive_app.py --server.address=0.0.0.0
+docker run --rm -it \
+  -p 8501:8501 \
+  -v $(pwd)/results:/app/results \
+  sg-bg \
+  streamlit run /app/app/interactive_app.py
 ```
 
 웹 브라우저에서 아래 주소로 접속합니다.
