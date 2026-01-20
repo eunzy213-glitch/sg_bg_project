@@ -22,6 +22,7 @@ from sklearn.metrics import (
     mean_absolute_error
 )
 from sklearn.model_selection import KFold # K-Fold 교차검증용
+from sklearn.base import clone
 
 
 # ------------------------------------------------------------
@@ -169,14 +170,25 @@ def kfold_evaluate_models(df, models, n_splits=5):
     X = df[["SG"]].values
     y = df["BG"].values
 
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42) # k-fold 설정
+    kf = KFold(
+        n_splits=n_splits,
+        shuffle=True,
+        random_state=42   # ✅ 재현성 고정
+    )
+
     rows = []
 
-    for model_name, model in models.items(): # 모델별, fold별 평가
+    for model_name, model in models.items():
         for fold, (tr, te) in enumerate(kf.split(X), start=1):
-            model.fit(X[tr], y[tr]) # 학습
-            pred = model.predict(X[te]) # 예측
-            #평가
+
+            # ------------------------------------------------
+            # ✅ Pipeline / 모든 모델에 안전한 clone
+            # ------------------------------------------------
+            model_clone = clone(model)
+
+            model_clone.fit(X[tr], y[tr])
+            pred = model_clone.predict(X[te])
+
             result = evaluate_single(y[te], pred)
             result["model"] = model_name
             result["fold"] = fold

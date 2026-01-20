@@ -11,6 +11,13 @@ import numpy as np # 수치계산 라이브러리
 import pandas as pd # DataFrame 처리 라이브러리
 from sklearn.linear_model import LinearRegression # 선형회귀 모델
 from sklearn.ensemble import IsolationForest  # 이상치 탐지 모델
+import logging # ✅ 로그 출력용 라이브러리 (추가)
+
+
+# --------------------------------------------------------
+# ✅ Logger 설정 (추가)
+# --------------------------------------------------------
+logger = logging.getLogger(__name__)
 
 
 def preprocess_and_filter_outliers(df):
@@ -33,17 +40,21 @@ def preprocess_and_filter_outliers(df):
         
     # 원본 보호를 위해 복사
     df = df.copy()
+    logger.info(f"🔹 전처리 시작 | 입력 데이터 행 수: {len(df)}")
 
     # --------------------------------------------------------
     # 1️⃣ SG, BG 결측 제거
     # --------------------------------------------------------
+    before_na = len(df)
     df = df.dropna(subset=["SG", "BG"]) # SG, BG 결측치가 있는 행 제거
+    logger.info(f"🔹 SG/BG 결측 제거 | 제거된 행 수: {before_na - len(df)}")
 
     # --------------------------------------------------------
     # 2️⃣ 범주형 결측 처리
     # --------------------------------------------------------
     cat_cols = df.select_dtypes(include="object").columns # dtype이 object인 컬럼(범주형) 선택
     df[cat_cols] = df[cat_cols].fillna("Unknown") # 범주형 결측치는 "Unknown"으로 대체
+    logger.info(f"🔹 범주형 결측 처리 완료 | 대상 컬럼: {list(cat_cols)}")
 
     # --------------------------------------------------------
     # 3️⃣ 잔차 기반 이상치 제거
@@ -62,6 +73,10 @@ def preprocess_and_filter_outliers(df):
     threshold = residual.mean() + 3 * residual.std()
     mask_residual = residual <= threshold
 
+    logger.info(
+        f"🔹 잔차 기반 이상치 제거 | threshold={threshold:.2f}, 제거된 행 수: {(~mask_residual).sum()}"
+    )
+
     # --------------------------------------------------------
     # 4️⃣ Isolation Forest
     # --------------------------------------------------------
@@ -74,11 +89,19 @@ def preprocess_and_filter_outliers(df):
     iso_label = iso.fit_predict(df[["SG", "BG"]]) # 이상치 탐지 수행
     mask_iso = iso_label == 1 # 정상치인 행에 대해 True
 
+    logger.info(
+        f"🔹 IsolationForest 이상치 제거 | 제거된 행 수: {(~mask_iso).sum()}"
+    )
+
     # --------------------------------------------------------
     # 5️⃣ 최종 필터
     # --------------------------------------------------------
     final_mask = mask_residual & mask_iso # 두 조건을 모두 만족하는 행만 선택
     df_clean = df.loc[final_mask] # final_mask에 해당하는 행만 선택
+
+    logger.info(
+        f"🔹 최종 필터 완료 | 최종 행 수: {len(df_clean)}"
+    )
 
     # --------------------------------------------------------
     # 6️⃣ 리포트 생성
@@ -87,5 +110,7 @@ def preprocess_and_filter_outliers(df):
         "stage": ["original", "after_filter"],
         "rows": [len(df), len(df_clean)]
     })
+
+    logger.info("✅ 전처리 및 이상치 제거 완료")
 
     return df_clean, report # 최종 전처리 데이터와 요약 리포트 반환

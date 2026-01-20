@@ -13,3 +13,6 @@ dataset_update.csv
 .gitignore
 
 .DS_Store
+
+logs/
+*.log

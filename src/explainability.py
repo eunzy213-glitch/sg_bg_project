@@ -70,13 +70,16 @@ def run_lime_analysis( # lime 분석 함수
         training_data=X_train,
         feature_names=feature_names,
         mode="regression",
-        discretize_continuous=False
+        discretize_continuous=False,
+        random_state=42,
+        sample_around_instance=True
     )
 
     exp = explainer.explain_instance( # 특정 샘플 1건 설명 생성
         X_test[sample_idx],
         model.predict,
-        num_features=num_features
+        num_features=num_features,
+        num_samples=5000
     )
 
     fig = exp.as_pyplot_figure()

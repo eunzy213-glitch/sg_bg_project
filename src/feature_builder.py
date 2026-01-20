@@ -1,9 +1,15 @@
-# preprocessing.py
+# feature_builder.py
 # ============================================================
 # DataFrame 타입 힌트 및 데이터 처리용
 # ============================================================
 
 import pandas as pd # DataFrame 처리 라이브러리
+import logging # ✅ 로그 출력용 라이브러리 (추가)
+
+# --------------------------------------------------------
+# ✅ Logger 설정 (추가)
+# --------------------------------------------------------
+logger = logging.getLogger(__name__)
 
 # 각 범주형 컬럼을 정수로 바꿀 때 사용한 매핑표
 ENCODING_MAP = {
@@ -48,11 +54,14 @@ def normalize_categorical_values(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     df = df.copy()  # 원본 보호(함수 밖 df가 변하지 않게)
+    logger.info("🔹 범주형 값 정규화 시작")
 
     # --------------------------------------------------------
     # ✅ Pregnancy 값 정규화 (가장 중요/가장 오류 잦음)
     # --------------------------------------------------------
     if "Pregnancy" in df.columns:
+
+        logger.info("🔹 Pregnancy 컬럼 정규화 수행")
 
         # 1) 결측/공백/대소문자/앞뒤공백 처리 통일
         s = (
@@ -82,7 +91,7 @@ def normalize_categorical_values(df: pd.DataFrame) -> pd.DataFrame:
             # ----- "정상 임신" 계열 -----
             "pregnant_normal": "pregnant_normal",
             "pregnant normal": "pregnant_normal",
-            "pregnant": "pregnant_normal",     # 임신이라고만 쓰인 경우 우선 정상 임신으로 간주
+            "pregnant": "pregnant_normal",
             
             # ----- "임신성 당뇨(GDM)" 계열 -----
             "pregnant_gdm": "pregnant_gdm",
@@ -92,21 +101,22 @@ def normalize_categorical_values(df: pd.DataFrame) -> pd.DataFrame:
             "gestational_diabetes": "pregnant_gdm",
         })
 
-        # 3) 최종적으로 ENCODING_MAP의 key와 정확히 맞추기(대소문자 포함)
+        # 3) 최종적으로 ENCODING_MAP의 key와 정확히 맞추기
         s = s.replace({
             "not_pregnant": "Not_Pregnant",
             "pregnant_normal": "Pregnant_Normal",
             "pregnant_gdm": "Pregnant_GDM",
         })
 
-        # 4) 그래도 남는 이상값은 임신 아님으로 강제(안정성 우선)
-        valid_keys = set(ENCODING_MAP["Pregnancy"].keys())  # 허용 키 집합
-        s = s.where(s.isin(valid_keys), "Not_Pregnant")     # 허용되지 않으면 Not_Pregnant로
+        # 4) 그래도 남는 이상값은 임신 아님으로 강제
+        valid_keys = set(ENCODING_MAP["Pregnancy"].keys())
+        s = s.where(s.isin(valid_keys), "Not_Pregnant")
 
-        # 5) 정규화 결과를 df에 반영
+        # 5) 정규화 결과 반영
         df["Pregnancy"] = s
 
-    return df  # 정규화된 df 반환
+    logger.info("✅ 범주형 값 정규화 완료")
+    return df
 
 
 def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -115,24 +125,25 @@ def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
     학습/추론/시각화 모두 동일한 인코딩 규칙을 사용해야 합니다.
     """
 
-    df = df.copy()  # 원본 보호
+    df = df.copy()
+    logger.info("🔹 범주형 Feature 인코딩 시작")
 
-    for col, mapping in ENCODING_MAP.items():  # 각 컬럼별 매핑 적용
-        if col in df.columns:                  # 실제 df에 컬럼이 있을 때만
-            df[col] = df[col].map(mapping)     # 문자열 -> 정수
+    for col, mapping in ENCODING_MAP.items():
+        if col in df.columns:
+            df[col] = df[col].map(mapping)
 
-            # 기본값 정책:
-            # - Pregnancy는 Not_Pregnant가 기본값
-            # - 그 외는 첫 번째 클래스 값
             default_value = (
                 mapping["Not_Pregnant"]
                 if col == "Pregnancy"
                 else list(mapping.values())[0]
             )
 
-            df[col] = df[col].fillna(default_value)  # NaN이면 기본값으로 채우기
+            df[col] = df[col].fillna(default_value)
 
-    return df  # 인코딩된 df 반환
+            logger.info(f"   ▶ 인코딩 완료: {col}")
+
+    logger.info("✅ 범주형 Feature 인코딩 완료")
+    return df
 
 
 def build_features(df: pd.DataFrame, mode: str):
@@ -141,12 +152,14 @@ def build_features(df: pd.DataFrame, mode: str):
     X(입력), y(정답), feature_names(컬럼명 리스트)를 반환합니다.
     """
 
-    df = df.copy()            # 원본 보호
-    mode = mode.lower()       # 비교 안정성 확보
+    df = df.copy()
+    mode = mode.lower()
+
+    logger.info(f"🧩 Feature 생성 시작 | mode={mode}")
 
     # ✅ 반드시 정규화 -> 인코딩 순서
-    df = normalize_categorical_values(df)  # 표기 통일
-    df = encode_categorical_features(df)   # 정수 인코딩
+    df = normalize_categorical_values(df)
+    df = encode_categorical_features(df)
 
     # 모드별 feature 구성
     if mode == "sg_only":
@@ -159,13 +172,17 @@ def build_features(df: pd.DataFrame, mode: str):
             "Age_Group",
             "Exercise",
             "Family_History",
-            "Pregnancy",  
+            "Pregnancy",
         ]
     else:
         raise ValueError(f"Unknown feature mode: {mode}")
 
-    X = df[feature_cols].values             # 모델 입력 행렬
-    feature_names = feature_cols            # feature 이름(순서 중요)
-    y = df["BG"].values if "BG" in df.columns else None  # 정답(추론이면 None)
+    X = df[feature_cols].values
+    feature_names = feature_cols
+    y = df["BG"].values if "BG" in df.columns else None
+
+    logger.info(
+        f"✅ Feature 생성 완료 | X.shape={X.shape}, feature_count={len(feature_names)}"
+    )
 
     return X, y, feature_names
