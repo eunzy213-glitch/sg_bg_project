@@ -1,6 +1,6 @@
 ## 🏗 Overall System Architecture
 
-본 프로젝트는 **타액 포도당(SG) → 혈당(BG) 예측**을 위해 **학습(Training) / 설명가능성(Explainability) / 추론(Inference)** 파이프라인을 명확히 분리하여 설계된 머신러닝 시스템입니다.
+🔹본 프로젝트는 **타액 포도당(SG) → 혈당(BG) 예측**을 위해 **학습(Training) / 설명가능성(Explainability) / 추론(Inference)** 파이프라인을 명확히 분리하여 설계된 머신러닝 시스템입니다.
 
 ---
 
