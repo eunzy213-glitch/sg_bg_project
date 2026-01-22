@@ -128,11 +128,11 @@ def encode_categorical_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     logger.info("🔹 범주형 Feature 인코딩 시작")
 
-    for col, mapping in ENCODING_MAP.items():
+    for col, mapping in ENCODING_MAP.items(): 
         if col in df.columns:
             df[col] = df[col].map(mapping)
 
-            default_value = (
+            default_value = ( # Pregnancy 결측의 경우 무조건 Not_Pregnant로 채움
                 mapping["Not_Pregnant"]
                 if col == "Pregnancy"
                 else list(mapping.values())[0]
@@ -162,7 +162,7 @@ def build_features(df: pd.DataFrame, mode: str):
     df = encode_categorical_features(df)
 
     # 모드별 feature 구성
-    if mode == "sg_only":
+    if mode == "sg_only": 
         feature_cols = ["SG"]
     elif mode == "sg_plus_meta":
         feature_cols = [

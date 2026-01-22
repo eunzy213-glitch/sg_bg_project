@@ -1,4 +1,4 @@
-# 📘 SG → BG 예측 프로젝트
+# 📘 SG 기반 BG 예측 프로젝트
 
 🔹 본 프로젝트는 **타액 포도당(`SG, Salivary Glucose`), 여러 생리·생활 카테고리   변수**를 활용하여 **혈당(`BG, Blood Glucose`)을 예측**하는 머신러닝 파이프라인 입니다.
 
@@ -207,6 +207,7 @@ sg_bg_project/
 ## 📊 시각화 분석 요약 – SG_PLUS_META 실험 결과
 
 🔹SG_PLUS_META 실험은 **타액 포도당(`SG`)** 에 더해 **BMI, Age Group, Exercise, Family History, Pregnancy 등의 생리·생활 변수**를 함께 사용하여 **혈당(`BG`) 예측 성능 향상을 평가**한 확장 실험입니다.
+
 🔹본 실험의 목적은 **`SG`단일 변수의 한계를 보완**하고, **메타데이터가 예측 정확도와 임상적 신뢰성에 미치는 영향을 분석**하는 것입니다.
 
 ---
@@ -272,6 +273,7 @@ sg_bg_project/
 ## 🧠 설명가능성(Explainability) 분석 결과
 
 🔹본 프로젝트에서는 **SG_PLUS_META 실험**을 기반으로 모델 예측 결과에 대한 해석 가능성을 확보하기 위해 **SHAP(Global explanation)**, **LIME(Local explanation)** 분석을 수행하였습니다.
+
 🔹설명가능성 분석은 예측 성능과 분리된 전용 파이프라인에서 수행되며, 특히 **서브 카테고리 단위(feature level)** 영향 해석에 중점을 두었습니다.
 
 ---
@@ -324,8 +326,9 @@ sg_bg_project/
 
 ### ✅ 설명가능성 분석 종합 요약
 
-> 📌**SG는 모든 모델에서 가장 중요한 핵심 변수이며, 메타 변수는 예측 보정 역할을 수행합니다.** 
-> 📌**LightGBM**은 성능뿐 아니라 **설명 안정성 측면에서도 RandomForest 대비 우수**하며, 실제 서비스/임상 적용을 고려할 때 **해석 가능성과 일관성 측면에서 더 적합한 모델**로 판단됩니다.
+> 📌**SG는 모든 모델에서 가장 중요한 핵심 변수이며, 메타 변수는 예측 보정 역할을 수행합니다.**
+ 
+🔹📌**LightGBM**은 성능뿐 아니라 **설명 안정성 측면에서도 RandomForest 대비 우수**하며, 실제 서비스/임상 적용을 고려할 때 **해석 가능성과 일관성 측면에서 더 적합한 모델**로 판단됩니다.
 
 ---
 ## 📈 교차검증 기반 성능 평가 (K-Fold Validation)
@@ -370,18 +373,18 @@ python inference/cli_predict.py
 ```
 ### ▶ 입력 예시
 ```text
-Meal_Status (Fasting / Postprandial): Fasting
-BMI_Class (Normal / Obese / Overweight / Healthy_Obesity / Skinny_Diabetes): Overweight
+SG (Salivary Glucose): 10
+Meal_Status (Fasting / Postprandial): Postprandial
+BMI_Class (Normal / Overweight / Obese / Healthy_Obesity / Skinny_Diabetes): Normal
 Age_Group (Young / Middle / Elderly): Middle
-Exercise (Sedentary / Moderate / High): Moderate
-Family_History (None / Other / Diabetes): Diabetes
-Pregnancy (Not_Applicable / None / Pregnant_Normal): Not_Applicable
-SG value: 95.0
+Exercise (Sedentary / Moderate / High): High
+Family_History (None / Other / Diabetes): None
+Pregnancy (Not_Pregnant / Pregnant_Normal / Pregnant_GDM): Not_Pregnant
 ```
 ### ▶ 예측 결과 예시
 ```text
 [Prediction Result]
-Predicted BG: 108.3 mg/dL
+Predicted BG: 121.89 mg/dL
 ```
 
 ---
