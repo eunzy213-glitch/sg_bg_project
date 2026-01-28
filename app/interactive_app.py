@@ -22,16 +22,11 @@ st.set_page_config( # Streamlit 페이지 기본 설정
 st.title("🧪 SG → BG Prediction Analysis Dashboard")
 
 # ------------------------------------------------------------
-# 1️⃣ 실험 / 모델 선택
+# 1️⃣ 실험 선택
 # ------------------------------------------------------------
 experiment = st.sidebar.selectbox( # 사이드바에 드롭다운 생성
     "Experiment", # 드롭다운 위에 표시될 라벨
     ["SG_ONLY", "SG_PLUS_META"] # 선택 가능한 실험 이름
-)
-
-model = st.sidebar.selectbox( # 사이드바 두번째 드롭다운
-    "Model", # 라벨
-    ["Linear", "Polynomial", "Huber", "RandomForest", "LightGBM"]
 )
 
 # ------------------------------------------------------------
@@ -45,7 +40,19 @@ if not os.path.exists(data_path):
 
 df = pd.read_csv(data_path)
 
+# ------------------------------------------------------------
+# 🆕 모델 목록 자동 추출 (추가)
+# ------------------------------------------------------------
+available_models = sorted(df["model"].unique().tolist())
+
+model = st.sidebar.selectbox( # 사이드바 두번째 드롭다운
+    "Model", # 라벨
+    available_models
+)
+
+# ------------------------------------------------------------
 # 모델 필터링
+# ------------------------------------------------------------
 df_model = df[df["model"] == model].copy()
 
 if df_model.empty:
@@ -165,49 +172,10 @@ with tabs[2]: # tabs[2] 영역
     # --------------------------------------------------
     # 3️⃣ 기준선 추가
     # --------------------------------------------------
-    # 평균 차이선 (Bias)
-    fig.add_hline(
-        y=mean_diff,
-        line_color="black",
-        line_dash="dash"
-    )
+    fig.add_hline(y=mean_diff, line_color="black", line_dash="dash")
+    fig.add_hline(y=loa_upper, line_color="red", line_dash="dot")
+    fig.add_hline(y=loa_lower, line_color="red", line_dash="dot")
 
-    # ±1.96 SD (Limits of Agreement)
-    fig.add_hline(
-        y=loa_upper,
-        line_color="red",
-        line_dash="dot"
-    )
-    fig.add_hline(
-        y=loa_lower,
-        line_color="red",
-        line_dash="dot"
-    )
-
-    # --------------------------------------------------
-    # 4️⃣ 오른쪽 상단 요약 텍스트
-    # --------------------------------------------------
-    fig.add_annotation(
-        x=0.98,
-        y=0.98,
-        xref="paper",
-        yref="paper",
-        showarrow=False,
-        align="right",
-        bordercolor="black",
-        borderwidth=1,
-        bgcolor="white",
-        opacity=0.85,
-        text=(
-            f"<b>Mean bias</b>: {mean_diff:.2f}<br>"
-            f"<b>+1.96 SD</b>: {loa_upper:.2f}<br>"
-            f"<b>-1.96 SD</b>: {loa_lower:.2f}"
-        )
-    )
-
-    # --------------------------------------------------
-    # 5️⃣ 출력
-    # --------------------------------------------------
     st.plotly_chart(fig, use_container_width=True)
 
 # ============================================================
@@ -228,7 +196,6 @@ with tabs[3]: # tabs[3] 영역
         title=f"CEGA Plot ({model})"
     )
 
-    # y = x 기준선
     fig.add_shape(
         type="line",
         x0=min_bg, y0=min_bg,
@@ -236,21 +203,11 @@ with tabs[3]: # tabs[3] 영역
         line=dict(dash="dash", color="black")
     )
 
-    # A-zone ±20%
-    fig.add_shape(
-        type="line",
-        x0=0, y0=0,
-        x1=max_bg, y1=max_bg * 1.2,
-        line=dict(dash="dot", color="gray")
-    )
-    fig.add_shape(
-        type="line",
-        x0=0, y0=0,
-        x1=max_bg, y1=max_bg * 0.8,
-        line=dict(dash="dot", color="gray")
-    )
+    fig.add_shape(type="line", x0=0, y0=0, x1=max_bg, y1=max_bg * 1.2,
+                  line=dict(dash="dot", color="gray"))
+    fig.add_shape(type="line", x0=0, y0=0, x1=max_bg, y1=max_bg * 0.8,
+                  line=dict(dash="dot", color="gray"))
 
-    # Zone 비율 계산
     ratio = np.abs(y_pred - y_true) / y_true.replace(0, np.nan)
 
     A = np.mean(ratio <= 0.2) * 100

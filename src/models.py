@@ -19,6 +19,9 @@ def get_model_dict():
     from sklearn.pipeline import Pipeline # 전처리+모델을 한번에 묶는 파이프라인
     from sklearn.ensemble import RandomForestRegressor # 랜덤포레스트 회귀 모델
     from lightgbm import LGBMRegressor # LightGBM 회귀 모델
+    from xgboost import XGBRegressor # XGBoost 회귀 모델 추가
+    from catboost import CatBoostRegressor  # CatBoost 회귀 모델 추가
+
 
     logger.info("🔹 모델 딕셔너리 생성 시작")
 
@@ -46,7 +49,28 @@ def get_model_dict():
             colsample_bytree=1.0,
             deterministic=True,
             force_row_wise=True
+        ),
+        
+        "XGBoost": XGBRegressor( # XGBoost 회귀 모델 추가
+            n_estimators=500,
+            learning_rate=0.05,
+            max_depth=4,
+            subsample=1.0,
+            colsample_bytree=1.0,
+            random_state=42,
+            objective="reg:squarederror",
+            n_jobs=1
+        ),
+
+        "CatBoost": CatBoostRegressor( # CatBoost 회귀 모델 추가
+            iterations=500,
+            learning_rate=0.05,
+            depth=4,
+            loss_function="RMSE",
+            random_seed=42,
+            verbose=False
         )
+
     }
 
     logger.info(f"🔹 사용 모델 목록: {list(model_dict.keys())}")

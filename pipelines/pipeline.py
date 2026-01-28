@@ -15,6 +15,7 @@ import shutil # 폴더 시스템 작업 라이브러리
 import pandas as pd # DataFrame 처리 라이브러리
 import joblib # 학습된 모델 .pkl 형태로 저장/로드하기 위한 라이브러리
 import logging # ✅ 로그 출력용 라이브러리 (추가)
+import numpy as np # 수치연산 라이브러리
 
 from src.feature_builder import build_features # 모델에 넣을 x, y, feature_name 생성 
 from src.preprocessing import preprocess_and_filter_outliers # 전처리 전체 로직 처리
@@ -108,6 +109,32 @@ def run_pipeline(data_path, experiment_name, feature_mode):
         pred_pack = train_and_predict_all(X, y, models) # test set에 대한 예측값 반환
         logger.info("✅ 모델 학습 및 예측 완료")
 
+        # ========================================================
+        # 🔥 5️⃣-1️⃣ Weighted Ensemble (Hold-out Test 정식 편입)
+        # ========================================================
+        if experiment_name == "SG_PLUS_META":
+
+            logger.info("🧩 Weighted Ensemble Hold-out 예측 생성 시작")
+
+            ensemble_weights = {
+                "Linear": 0.05,
+                "Polynomial": 0.10,
+                "Huber": 0.15,
+                "RandomForest": 0.20,
+                "LightGBM": 0.50
+            }
+
+            y_true = pred_pack["y_test"]
+            ensemble_pred = np.zeros_like(y_true, dtype=float)
+
+            for model_name, weight in ensemble_weights.items():
+                ensemble_pred += weight * pred_pack["preds"][model_name]
+
+            # ✅ 정식 모델로 등록
+            pred_pack["preds"]["WeightedEnsemble"] = ensemble_pred
+
+            logger.info("✅ Weighted Ensemble Hold-out 예측 완료")
+
         # --------------------------------------------------------
         # 6️⃣ 성능 평가 (Hold-out Test)
         # --------------------------------------------------------
@@ -115,7 +142,7 @@ def run_pipeline(data_path, experiment_name, feature_mode):
         overall_metrics = evaluate_all_models_overall(pred_pack) # 모델별 성능지표 계산
         overall_metrics["experiment"] = experiment_name # 실험명 컬럼 추가
 
-        overall_metrics.to_csv( # 모델별 성능지표 csv 저장
+        overall_metrics.to_csv(
             os.path.join(results_dir, "overall_metrics.csv"),
             index=False
         )
@@ -126,20 +153,20 @@ def run_pipeline(data_path, experiment_name, feature_mode):
         # 7️⃣ 전체 데이터 분포 시각화
         # --------------------------------------------------------
         logger.info("📈 SG vs BG 전체 산점도 시각화")
-        plot_scatter(df_clean, results_dir) # 전체 데이터에 대한 SG vs BG 산점도 시각화
+        plot_scatter(df_clean, results_dir)
 
-        y_true = pred_pack["y_test"] # 실제 BG 값 가져옴
+        y_true = pred_pack["y_test"]
 
         # --------------------------------------------------------
         # 8️⃣ 모델별 시각화 (모델별 폴더)
         # --------------------------------------------------------
         logger.info("🖼️ 모델별 시각화 생성 시작")
 
-        for model_name, y_pred in pred_pack["preds"].items(): # 모델마다 반복
+        for model_name, y_pred in pred_pack["preds"].items():
             logger.info(f"   ▶ 시각화 생성 중: {model_name}")
 
-            model_dir = os.path.join(results_dir, model_name) # 모델별 폴더 경로 생성
-            os.makedirs(model_dir, exist_ok=True) # 모델별 폴더 생성
+            model_dir = os.path.join(results_dir, model_name)
+            os.makedirs(model_dir, exist_ok=True)
 
             plot_actual_vs_pred(y_true, y_pred, model_name, model_dir)
             plot_residual(y_true, y_pred, model_name, model_dir)
@@ -147,7 +174,7 @@ def run_pipeline(data_path, experiment_name, feature_mode):
             plot_cega(y_true, y_pred, model_name, model_dir)
 
         # --------------------------------------------------------
-        # 9️⃣ 모델 성능 비교 Bar Plot (R2 / RMSE / MAE / MARD)
+        # 9️⃣ 모델 성능 비교 Bar Plot
         # --------------------------------------------------------
         logger.info("📊 모델 성능 비교 Bar Plot 생성")
         plot_model_metrics(overall_metrics, results_dir)
@@ -170,12 +197,12 @@ def run_pipeline(data_path, experiment_name, feature_mode):
         # --------------------------------------------------------
         logger.info("💾 예측 결과 CSV 생성 시작")
 
-        pred_rows = [] # 예측 결과를 담을 리스트
-        test_idx = pred_pack["test_idx"] # test로 사용된 행 인덱스 목록
+        pred_rows = []
+        test_idx = pred_pack["test_idx"]
 
         for model_name, y_pred in pred_pack["preds"].items():
             for i, idx in enumerate(test_idx):
-                pred_rows.append({ 
+                pred_rows.append({
                     "experiment": experiment_name,
                     "model": model_name,
                     "SG": df_clean.loc[idx, "SG"],
@@ -193,12 +220,8 @@ def run_pipeline(data_path, experiment_name, feature_mode):
 
         logger.info("✅ 예측 결과 CSV 저장 완료")
 
-        print(f"✅ 실험 완료 (예측 CSV 포함): {experiment_name}")
-
         # --------------------------------------------------------
         # 1️⃣2️⃣ 최적 모델 저장 (추론용)
-        # - SG_PLUS_META 실험에서만 수행
-        # - 전체 데이터(X, y)로 재학습
         # --------------------------------------------------------
         if experiment_name == "SG_PLUS_META":
 
@@ -219,6 +242,6 @@ def run_pipeline(data_path, experiment_name, feature_mode):
 
         logger.info(f"🎉 Pipeline 종료: {experiment_name}")
 
-    except Exception as e:  # ✅ 치명적 오류 로그
+    except Exception as e:
         logger.exception("🔥 Pipeline 실행 중 치명적 오류 발생")
         raise e

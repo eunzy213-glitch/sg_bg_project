@@ -3,7 +3,7 @@
 # 목적:
 # - 기존 파이프라인 결과(results/{experiment}/predictions.csv)를 기반으로
 # - 모델별로 따로 저장된 시각화 "외에"
-# - "모델 5개를 한 화면"에 모아 MERGE 폴더에 저장하는 후처리 스크립트
+# - "모델 N개를 한 화면"에 모아 MERGE 폴더에 저장하는 후처리 스크립트
 #
 # 결과 저장 위치:
 # - results/{experiment}/merge/
@@ -122,7 +122,7 @@ def plot_merge_residual(df, models, save_path):
 
 
 # ------------------------------------------------------------
-# 3) Bland–Altman (⭐ 여기 수정됨)
+# 3) Bland–Altman
 # ------------------------------------------------------------
 def plot_merge_bland_altman(df, models, save_path):
     n = len(models)
@@ -150,7 +150,6 @@ def plot_merge_bland_altman(df, models, save_path):
         ax.axhline(loa_upper, linestyle=":", color="red", linewidth=1)
         ax.axhline(loa_lower, linestyle=":", color="red", linewidth=1)
 
-        # ⭐ CEGA 스타일 요약 텍스트 추가
         ax.text(
             0.98, 0.98,
             f"Mean: {mean_diff:.2f}\n"
@@ -232,10 +231,13 @@ def plot_merge_cega(df, models, save_path):
 def main():
     results_root = "results"
     experiments = ["SG_ONLY", "SG_PLUS_META"]
-    models = ["Linear", "Polynomial", "Huber", "RandomForest", "LightGBM"]
 
     for exp in experiments:
         df = load_predictions(results_root, exp)
+
+        # ✅ predictions.csv에 실제 존재하는 모델 자동 수집
+        models = sorted(df["model"].unique().tolist())
+
         merge_dir = ensure_merge_dir(results_root, exp)
         exp_lower = exp.lower()
 
@@ -257,6 +259,7 @@ def main():
         )
 
         print(f"✅ MERGE 저장 완료: {exp} → {merge_dir}")
+        print(f"   포함된 모델: {models}")
 
 
 if __name__ == "__main__":

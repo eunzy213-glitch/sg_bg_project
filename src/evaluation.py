@@ -196,3 +196,63 @@ def kfold_evaluate_models(df, models, n_splits=5):
             rows.append(result)
 
     return pd.DataFrame(rows)
+
+
+# ------------------------------------------------------------
+# Weighted Ensemble (Hold-out / K-Fold 공용)
+# ------------------------------------------------------------
+def weighted_ensemble(preds_dict, weights):
+    """
+    preds_dict : {model_name: y_pred}
+    weights    : {model_name: weight}
+    """
+    y_ens = np.zeros_like(next(iter(preds_dict.values())))
+    for model, w in weights.items():
+        y_ens += w * preds_dict[model]
+    return y_ens
+
+
+# ------------------------------------------------------------
+# 🆕 K-Fold Weighted Ensemble 교차검증
+# ------------------------------------------------------------
+def kfold_weighted_ensemble(df, models, weights, n_splits=5):
+    """
+    K-Fold 환경에서 여러 모델의 예측을 가중 평균하여
+    Weighted Ensemble 성능을 평가
+    """
+
+    X = df[["SG"]].values
+    y = df["BG"].values
+
+    kf = KFold(
+        n_splits=n_splits,
+        shuffle=True,
+        random_state=42
+    )
+
+    rows = []
+
+    for fold, (tr, te) in enumerate(kf.split(X), start=1):
+
+        fold_preds = {}
+
+        # --------------------------------------------
+        # 각 모델별 예측 수집
+        # --------------------------------------------
+        for model_name, model in models.items():
+            model_clone = clone(model)
+            model_clone.fit(X[tr], y[tr])
+            fold_preds[model_name] = model_clone.predict(X[te])
+
+        # --------------------------------------------
+        # Weighted Ensemble 예측
+        # --------------------------------------------
+        y_ens = weighted_ensemble(fold_preds, weights)
+
+        result = evaluate_single(y[te], y_ens)
+        result["model"] = "WeightedEnsemble"
+        result["fold"] = fold
+
+        rows.append(result)
+
+    return pd.DataFrame(rows)

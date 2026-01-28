@@ -18,3 +18,8 @@ results/
 # logs
 logs/
 *.log
+
+# ML / Model Training Artifacts
+catboost_info/
+lightgbm_model.txt
+

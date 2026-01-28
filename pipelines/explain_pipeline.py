@@ -110,6 +110,13 @@ def run_explain_pipeline( # explainability 파이프라인 메인 함수
         }
 
     # --------------------------------------------------------
+    # ❗ Ensemble 모델은 Explain 대상에서 제외
+    # --------------------------------------------------------
+    if "Ensemble" in models:
+        print("⚠️ Ensemble 모델은 SHAP/LIME 대상이 아니므로 제외됩니다.")
+        models.pop("Ensemble")
+
+    # --------------------------------------------------------
     # 6️⃣ Explain 결과 저장 루트
     # --------------------------------------------------------
     base_results_dir = os.path.join(
@@ -172,5 +179,10 @@ if __name__ == "__main__":
     run_explain_pipeline(
         data_path="data/dataset.csv",   # 프로젝트 루트 기준 경로
         experiment_name="SG_PLUS_META",
-        target_models=["LightGBM", "RandomForest"]
+        target_models=[
+            "LightGBM",
+            "RandomForest",
+            "XGBoost",
+            "CatBoost"
+        ]
     )

@@ -1,18 +1,25 @@
+# ===============================
+# Training Artifacts / Logs
+# ===============================
+catboost_info/
+*.log
+
+# ===============================
+# Results (외부 볼륨 마운트 권장)
+# ===============================
+results/
+history/
+
+# ===============================
+# Python Cache
+# ===============================
 __pycache__/
 *.pyc
 
-.venv/
-venv/
-
-results/
-dataset_update.csv
-
-*.pkl
-
+# ===============================
+# Git / IDE
+# ===============================
 .git/
 .gitignore
-
-.DS_Store
-
-logs/
-*.log
+.vscode/
+.idea/
