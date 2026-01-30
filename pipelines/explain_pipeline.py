@@ -9,7 +9,13 @@ import numpy as np # 수치연산 라이브러리
 
 from src.preprocessing import preprocess_and_filter_outliers # 학습 파이프라인과 동일한 전처리/이상치 제거 로직 재사용
 from src.models import get_model_dict # 동일한 모델 구성 재사용
-from src.explainability import run_shap_analysis, run_lime_analysis # SHAP / LIME 분석 함수
+from src.explainability import (
+    run_shap_analysis,
+    run_lime_analysis,
+    run_shap_interaction_analysis,
+    save_shap_interaction_heatmap
+) # SHAP / LIME / SHAP Interaction 분석 함수
+
 
 
 # ============================================================
@@ -28,6 +34,12 @@ CATEGORICAL_COLS = [
     "Family_History",
     "Pregnancy",
 ]
+
+# ============================================================
+# SHAP Interaction 분석 허용 모델
+# - 현재 안정적으로 지원되는 모델만 포함
+# ============================================================
+SUPPORTED_INTERACTION_MODELS = ["XGBoost"]
 
 
 def build_explain_features(df: pd.DataFrame): # Explain 전용 Feature 생성 함수
@@ -127,7 +139,7 @@ def run_explain_pipeline( # explainability 파이프라인 메인 함수
     os.makedirs(base_results_dir, exist_ok=True)
 
     # --------------------------------------------------------
-    # 7️⃣ 모델별 SHAP / LIME 수행
+    # 7️⃣ 모델별 SHAP / LIME / Interaction 수행
     # --------------------------------------------------------
     for model_name, model in models.items():
 
@@ -145,7 +157,7 @@ def run_explain_pipeline( # explainability 파이프라인 메인 함수
         model.fit(X_explain, y)
 
         # ----------------------------------------------------
-        # SHAP 분석
+        # SHAP 분석 (모든 모델 공통)
         # ----------------------------------------------------
         run_shap_analysis(
             model=model,
@@ -156,7 +168,7 @@ def run_explain_pipeline( # explainability 파이프라인 메인 함수
         )
 
         # ----------------------------------------------------
-        # LIME 분석
+        # LIME 분석 (모든 모델 공통)
         # ----------------------------------------------------
         run_lime_analysis(
             model=model,
@@ -166,7 +178,35 @@ def run_explain_pipeline( # explainability 파이프라인 메인 함수
             save_dir=explain_dir
         )
 
-        print(f"✅ SHAP/LIME 완료: {model_name}")
+        # ----------------------------------------------------
+        # 🆕 SHAP Interaction 분석 (선별적 수행)
+        # ----------------------------------------------------
+        if model_name in SUPPORTED_INTERACTION_MODELS:
+            try:
+                run_shap_interaction_analysis(
+                    model=model,
+                    X_train=X_explain,
+                    feature_names=feature_names,
+                    save_dir=explain_dir,
+                    sample_size=300,      # Docker 환경 고려
+                    top_k=20,
+                    random_state=42
+                )
+
+                save_shap_interaction_heatmap(
+                    model=model,
+                    X=X_explain,
+                    feature_names=feature_names,
+                    save_dir=explain_dir
+                )
+
+            except Exception as e:
+                print(f"❌ SHAP Interaction 계산 실패 ({model_name}): {e}")
+
+        else:
+            print(f"⏭ SHAP Interaction 스킵 (비지원 모델): {model_name}")
+
+        print(f"✅ Explain 완료: {model_name}")
 
     print(f"\n🎉 Explain pipeline 완료: {experiment_name}")
 
@@ -180,8 +220,8 @@ if __name__ == "__main__":
         data_path="data/dataset.csv",   # 프로젝트 루트 기준 경로
         experiment_name="SG_PLUS_META",
         target_models=[
-            "LightGBM",
             "RandomForest",
+            "LightGBM",
             "XGBoost",
             "CatBoost"
         ]
