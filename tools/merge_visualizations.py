@@ -13,6 +13,7 @@
 # - {experiment_lower}_merge_residual.png
 # - {experiment_lower}_merge_bland_altman.png
 # - {experiment_lower}_merge_cega.png
+# - {experiment_lower}_merge_seg.png   ✅ SEG 추가
 # ============================================================
 
 import os
@@ -226,6 +227,69 @@ def plot_merge_cega(df, models, save_path):
 
 
 # ------------------------------------------------------------
+# 5) SEG Plot Merge (추가)
+# ------------------------------------------------------------
+def plot_merge_seg(results_root, experiment, models, save_path):
+    """
+    각 모델별로 저장된 SEG plot 이미지를 불러와서
+    한 화면에 grid 형태로 병합 저장하는 함수
+    """
+
+    n = len(models)
+    nrows, ncols = compute_grid(n, 3)
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 5 * nrows))
+    axes = np.array(axes).reshape(-1)
+
+    for i, model in enumerate(models):
+
+        ax = axes[i]
+
+        # ✅ 모델 폴더 경로
+        model_dir = os.path.join(results_root, experiment, model)
+
+        if not os.path.exists(model_dir):
+            ax.text(0.5, 0.5, f"폴더 없음\n({model})", ha="center", va="center")
+            ax.axis("off")
+            continue
+
+        # ✅ SEG 이미지 자동 탐색 (seg로 시작하는 png 찾기)
+        seg_candidates = [
+            f for f in os.listdir(model_dir)
+            if f.lower().startswith("seg") and f.lower().endswith(".png")
+        ]
+
+        if len(seg_candidates) == 0:
+            ax.text(
+                0.5, 0.5,
+                f"SEG plot not found\n({model})",
+                ha="center",
+                va="center",
+                fontsize=12
+            )
+            ax.axis("off")
+            continue
+
+        # ✅ 첫 번째 SEG 이미지 사용
+        seg_img_path = os.path.join(model_dir, seg_candidates[0])
+
+        # ✅ 이미지 불러오기
+        img = plt.imread(seg_img_path)
+
+        ax.imshow(img)
+        ax.axis("off")
+        ax.set_title(f"SEG ({model})")
+
+    # ✅ 빈 subplot 제거
+    for j in range(n, len(axes)):
+        axes[j].axis("off")
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+# ------------------------------------------------------------
 # 실행 엔트리
 # ------------------------------------------------------------
 def main():
@@ -256,6 +320,12 @@ def main():
         plot_merge_cega(
             df, models,
             os.path.join(merge_dir, f"{exp_lower}_merge_cega.png")
+        )
+
+        # ✅ SEG merge plot 추가됨
+        plot_merge_seg(
+            results_root, exp, models,
+            os.path.join(merge_dir, f"{exp_lower}_merge_seg.png")
         )
 
         print(f"✅ MERGE 저장 완료: {exp} → {merge_dir}")

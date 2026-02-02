@@ -16,13 +16,15 @@ import pandas as pd # DataFrame 처리 라이브러리
 import joblib # 학습된 모델 .pkl 형태로 저장/로드하기 위한 라이브러리
 import logging # ✅ 로그 출력용 라이브러리 (추가)
 import numpy as np # 수치연산 라이브러리
+from pathlib import Path
+
 
 from src.feature_builder import build_features # 모델에 넣을 x, y, feature_name 생성 
 from src.preprocessing import preprocess_and_filter_outliers # 전처리 전체 로직 처리
 from src.models import get_model_dict, train_and_predict_all  # 모델들을 dict 형태로 반환, 학습 및 예측 수행 
 from src.evaluation import (evaluate_all_models_overall, kfold_evaluate_models) # 모델별 성능지표 반환, k-fold 교차검증 수행
 from src.visualization import (plot_scatter, plot_actual_vs_pred, plot_residual, plot_bland_altman, plot_cega, plot_model_metrics) # 시각화 함수들
-
+from src.evaluation_with_seg import (evaluate_model_with_seg, create_combined_summary, compare_seg_across_models) # ✅ SEG 분석 관련 함수들 (추가)
 
 # --------------------------------------------------------
 # ✅ Logger 설정 (추가)
@@ -148,7 +150,79 @@ def run_pipeline(data_path, experiment_name, feature_mode):
         )
 
         logger.info("✅ 모델 성능 지표 저장 완료")
+        
+        # --------------------------------------------------------
+        # ✅ SEG 기반 추가 평가 (Step2-2 반영)
+        # --------------------------------------------------------
+        logger.info("📌 SEG 기반 평가 시작 (SEG Analysis)")
 
+        all_results = {}  # ✅ 모델별 SEG 결과 저장용 dict
+
+        for model_name, y_pred in pred_pack["preds"].items():
+
+            logger.info(f"   ▶ SEG 평가 수행 중: {model_name}")
+
+            # ✅ 반드시 먼저 model_dir 생성해야 함
+            model_dir = os.path.join(results_dir, model_name)
+            os.makedirs(model_dir, exist_ok=True)
+
+            # ✅ SEG 포함 평가 실행 (Path로 변환해서 전달)
+            results = evaluate_model_with_seg(
+                y_true=pred_pack["y_test"],
+                y_pred=y_pred,
+                model_name=model_name,
+                results_dir=Path(model_dir),        # ✅ Path 변환 유지
+                experiment_name=experiment_name
+            )
+
+            # ✅ 모델별 결과 저장
+            all_results[model_name] = results
+
+            # --------------------------------------------------------
+            # ✅ 로그 출력 (KeyError 방지 수정 완료)
+            # --------------------------------------------------------
+            metrics = results["metrics"]
+            seg_stats = results["seg_results"]["statistics"]
+
+            # ✅ SEG 통계 key 확인 출력
+            logger.info(f"      📌 SEG statistics keys: {list(seg_stats.keys())}")
+
+            # ✅ Acceptable_% key가 없을 경우 안전 처리
+            acceptable = seg_stats.get("Acceptable_%", None)
+
+            if acceptable is not None:
+                logger.info(
+                    f"      ✅ {model_name}: "
+                    f"MARD={metrics['MARD']:.2f}%, "
+                    f"SEG Acceptable={acceptable:.2f}%"
+                )
+            else:
+                logger.info(
+                    f"      ✅ {model_name}: "
+                    f"MARD={metrics['MARD']:.2f}%, "
+                    f"SEG Acceptable key not found"
+                )
+
+        # --------------------------------------------------------
+        # ✅ 평가 루프 종료 후 요약 생성 (Step2-3 반영)
+        # --------------------------------------------------------
+        logger.info("📌 SEG 통합 요약 파일 생성 시작")
+
+        # ✅ 통합 요약 CSV 생성 (experiment 폴더 루트에 저장)
+        summary_path = Path(results_dir) / "combined_summary_with_seg.csv"
+        create_combined_summary(all_results, summary_path)
+
+        # ✅ SEG 모델 비교 Plot 생성 (experiment 폴더 루트에 저장)
+        seg_comparison_path = Path(results_dir) / "seg_comparison_all_models.png"
+        compare_seg_across_models(
+            all_results,
+            seg_comparison_path,
+            experiment_name
+        )
+
+        logger.info("✅ SEG 분석 완료 (모델별 폴더에 저장됨)")
+        
+        
         # --------------------------------------------------------
         # 7️⃣ 전체 데이터 분포 시각화
         # --------------------------------------------------------

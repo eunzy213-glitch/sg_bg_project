@@ -74,7 +74,8 @@ tabs = st.tabs([
     "📈 Actual vs Predicted",
     "📉 Residual",
     "📊 Bland–Altman",
-    "🧠 CEGA"
+    "🧠 CEGA",
+    "🧩 SEG Analysis" # ✅ SEG 탭 추가
 ])
 
 # ============================================================
@@ -196,30 +197,75 @@ with tabs[3]: # tabs[3] 영역
         title=f"CEGA Plot ({model})"
     )
 
-    fig.add_shape(
-        type="line",
-        x0=min_bg, y0=min_bg,
-        x1=max_bg, y1=max_bg,
-        line=dict(dash="dash", color="black")
-    )
+    st.plotly_chart(fig, use_container_width=True)
 
-    fig.add_shape(type="line", x0=0, y0=0, x1=max_bg, y1=max_bg * 1.2,
-                  line=dict(dash="dot", color="gray"))
-    fig.add_shape(type="line", x0=0, y0=0, x1=max_bg, y1=max_bg * 0.8,
-                  line=dict(dash="dot", color="gray"))
+# ============================================================
+# 🧩 SEG Analysis Tab (정리 완료)
+# ============================================================
+with tabs[4]: # tabs[4] 영역
+    st.subheader("Surveillance Error Grid (SEG) Analysis") # 탭 내부 소제목
 
-    ratio = np.abs(y_pred - y_true) / y_true.replace(0, np.nan)
+    # ------------------------------------------------------------
+    # 1️⃣ SEG Detailed 결과 CSV 기반 Interactive Scatter
+    # ------------------------------------------------------------
+    st.markdown("### ✅ Interactive SEG Scatter (Hover Supported)")
 
-    A = np.mean(ratio <= 0.2) * 100
-    B = np.mean((ratio > 0.2) & (ratio <= 0.3)) * 100
-    AB = np.mean(ratio <= 0.3) * 100
+    # ✅ 모델별 detailed SEG 결과 CSV 경로 탐색
+    model_dir = f"results/{experiment}/{model}"
+    detailed_csv_path = None
 
-    st.markdown(
-        f"""
-        **A zone:** {A:.1f}%  
-        **B zone:** {B:.1f}%  
-        **A + B zone:** {AB:.1f}%
-        """
+    if os.path.exists(model_dir):
+        detailed_candidates = [
+            f for f in os.listdir(model_dir)
+            if f.lower().startswith("detailed_results") and f.lower().endswith(".csv")
+        ]
+        if len(detailed_candidates) > 0:
+            detailed_csv_path = os.path.join(model_dir, detailed_candidates[0])
+
+    if detailed_csv_path is None or not os.path.exists(detailed_csv_path):
+        st.warning("❌ SEG detailed 결과 CSV 파일이 존재하지 않습니다.")
+        st.stop()
+
+    # ------------------------------------------------------------
+    # 2️⃣ Detailed CSV 로드
+    # ------------------------------------------------------------
+    seg_detail = pd.read_csv(detailed_csv_path)
+
+    # ------------------------------------------------------------
+    # 3️⃣ Interactive Scatter Plot 생성 (Plotly)
+    # ------------------------------------------------------------
+    fig = px.scatter(
+        seg_detail,
+        x="Reference_BG",
+        y="Predicted_BG",
+        color="SEG_Zone",
+        hover_data=[
+            "Reference_BG",
+            "Predicted_BG",
+            "Absolute_Error",
+            "Relative_Error_%",
+            "SEG_Zone"
+        ],
+        labels={
+            "Reference_BG": "Actual BG",
+            "Predicted_BG": "Predicted BG",
+            "SEG_Zone": "SEG Zone"
+        },
+        title=f"Interactive SEG Scatter ({model})"
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
+    # ------------------------------------------------------------
+    # 2️⃣ 전체 모델 SEG Summary CSV 출력
+    # ------------------------------------------------------------
+    st.markdown("### ✅ Combined SEG Summary Table")
+
+    summary_path = f"results/{experiment}/combined_summary_with_seg.csv"
+
+    if os.path.exists(summary_path):
+        seg_df = pd.read_csv(summary_path)
+        st.dataframe(seg_df)
+
+    else:
+        st.warning("❌ combined_summary_with_seg.csv 파일이 존재하지 않습니다.")
